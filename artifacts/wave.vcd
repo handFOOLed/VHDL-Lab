@@ -1,0 +1,149 @@
+$date
+  Fri Oct 23 07:28:48 2026
+$end
+$version
+  GHDL v0
+$end
+$timescale
+  1 fs
+$end
+$scope module standard $end
+$upscope $end
+$scope module textio $end
+$upscope $end
+$scope module std_logic_1164 $end
+$upscope $end
+$scope module env $end
+$upscope $end
+$scope module tb_bus_trans $end
+$var reg 8 ! a[7:0] $end
+$var reg 8 " b[7:0] $end
+$var reg 8 # c[7:0] $end
+$var reg 2 $ s[1:0] $end
+$var reg 8 % a_drive[7:0] $end
+$var reg 8 & c_drive[7:0] $end
+$scope module dut $end
+$var reg 8 ' a[7:0] $end
+$var reg 8 ( b[7:0] $end
+$var reg 8 ) c[7:0] $end
+$var reg 2 * s[1:0] $end
+$upscope $end
+$upscope $end
+$enddefinitions $end
+#0
+bZZZZZZZZ !
+bZZZZZZZZ "
+bZZZZZZZZ #
+b00 $
+bZZZZZZZZ %
+bZZZZZZZZ &
+bZZZZZZZZ '
+bZZZZZZZZ (
+bZZZZZZZZ )
+b00 *
+#1000000
+b00111100 !
+b00111100 #
+b00111100 &
+b00111100 '
+b00111100 )
+#5000000
+#20000000
+bZZZZZZZZ !
+bZZZZZZZZ #
+bZZZZZZZZ &
+bZZZZZZZZ '
+bZZZZZZZZ )
+#21000000
+b01 $
+b01 *
+#22000000
+b10100101 !
+b10100101 #
+b10100101 %
+b10100101 '
+b10100101 )
+#25000000
+#40000000
+bZZZZZZZZ !
+bZZZZZZZZ #
+bZZZZZZZZ %
+bZZZZZZZZ '
+bZZZZZZZZ )
+#41000000
+b10 $
+b10 *
+#42000000
+b01011010 "
+b01011010 #
+b01011010 (
+b01011010 )
+#45000000
+#60000000
+#61000000
+b11 $
+b11 *
+#62000000
+b11110000 "
+b11110000 #
+b11110000 (
+b11110000 )
+#65000000
+#80000000
+#81000000
+bZZZZZZZZ !
+bZZZZZZZZ #
+b00 $
+bZZZZZZZZ '
+bZZZZZZZZ )
+b00 *
+#83000000
+#84000000
+b01 $
+b01 *
+#85000000
+#85500000
+b00 $
+b00 *
+#86000000
+bXXXXXXXX !
+b11111111 #
+b00000000 %
+b11111111 &
+bXXXXXXXX '
+b11111111 )
+#87000000
+#88000000
+b11111111 !
+bZZZZZZZZ %
+b11111111 '
+#89000000
+#90000000
+bZZZZZZZZ !
+bZZZZZZZZ #
+bZZZZZZZZ &
+bZZZZZZZZ '
+bZZZZZZZZ )
+#91000000
+b01 $
+b01 *
+#92000000
+b10100101 !
+bXXXXXXXX #
+b10100101 %
+b01011010 &
+b10100101 '
+bXXXXXXXX )
+#93000000
+#94000000
+b10100101 #
+bZZZZZZZZ &
+b10100101 )
+#95000000
+#96000000
+bZZZZZZZZ !
+bZZZZZZZZ #
+bZZZZZZZZ %
+bZZZZZZZZ '
+bZZZZZZZZ )
+#97000000

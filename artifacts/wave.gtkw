@@ -1,0 +1,14 @@
+[*] GTKWave signal setup; S binary, data hex
+[dumpfile] "wave.vcd"
+[size] 1800 600
+[signals_width] 340
+[sst_width] 150
+[pos] 0 0
+@28
+tb_bus_trans.s[1:0]
+@22
+tb_bus_trans.a[7:0]
+tb_bus_trans.b[7:0]
+tb_bus_trans.c[7:0]
+tb_bus_trans.a_drive[7:0]
+tb_bus_trans.c_drive[7:0]

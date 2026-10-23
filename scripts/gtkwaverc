@@ -1,0 +1,6 @@
+hide_sst yes
+use_pango_fonts yes
+fontname_signals Monospace 15
+fontname_waves Monospace 13
+initial_signal_window_width 340
+splash_disable yes
