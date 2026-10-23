@@ -1,0 +1,5 @@
+time_ns,A,B,C,S,direction,expected,actual,result
+5,3C,C3,3C,00,A->C,3C,3C,PASS
+25,A5,3C,A5,01,A->C,A5,A5,PASS
+45,A5,5A,5A,10,B->C,5A,5A,PASS
+65,A5,F0,F0,11,B->C,F0,F0,PASS

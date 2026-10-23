@@ -1,0 +1,19 @@
++ /workspace/tooling/bin/ghdl --version
+GHDL 5.0.1 (Debian 5.0.1+dfsg-1+b1) [Dunoon edition]
+ Compiled with GNAT Version: 14.2.0
+ static elaboration, mcode JIT code generator
+Written by Tristan Gingold.
+
+Copyright (C) 2003 - 2025 Tristan Gingold.
+GHDL is free software, covered by the GNU General Public License.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
++ /workspace/tooling/bin/ghdl -a --std=08 --workdir=/tmp/vhdl-lab.TNGkPD bus_trans_unidirectional.vhd tb_bus_trans_unidirectional.vhd
++ /workspace/tooling/bin/ghdl -e --std=08 --workdir=/tmp/vhdl-lab.TNGkPD tb_bus_trans_unidirectional
++ /workspace/tooling/bin/ghdl -r --std=08 --workdir=/tmp/vhdl-lab.TNGkPD tb_bus_trans_unidirectional --assert-level=error --read-wave-opt=scripts/unidirectional.opt --vcd=artifacts/unidirectional/wave.vcd
+tb_bus_trans_unidirectional.vhd:19:13:@5ns:(report note): PASS|route_00
+tb_bus_trans_unidirectional.vhd:19:13:@25ns:(report note): PASS|route_01
+tb_bus_trans_unidirectional.vhd:19:13:@45ns:(report note): PASS|route_10
+tb_bus_trans_unidirectional.vhd:19:13:@65ns:(report note): PASS|route_11
+tb_bus_trans_unidirectional.vhd:31:9:@80ns:(report note): SUMMARY|4 routing checks passed; completed at 80 ns
++ echo GHDL_EXIT_STATUS=0
+GHDL_EXIT_STATUS=0

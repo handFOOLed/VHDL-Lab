@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-"""Parse actual GHDL VCD events, cross-check samples, and render bus timing."""
-import bisect
 import csv
 import os
-from pathlib import Path
 import re
+from pathlib import Path
 
 os.environ.setdefault('MPLCONFIGDIR', '/tmp/vhdl-lab-matplotlib')
 import matplotlib
@@ -12,136 +10,140 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 
-ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / 'artifacts'
-text = (OUT / 'wave.vcd').read_text()
-match = re.search(r'\$timescale\s+(\d+)\s*(fs|ps|ns|us|ms|s)\s+\$end', text)
-if not match:
-    raise ValueError('Missing VCD timescale')
-scale_ns = int(match[1]) * {'fs': 1e-6, 'ps': 1e-3, 'ns': 1, 'us': 1e3, 'ms': 1e6, 's': 1e9}[match[2]]
-scopes, codes, events = [], {}, {}
-time = 0
-for line in text.splitlines():
-    fields = line.split()
-    if not fields:
-        continue
-    if fields[0] == '$scope':
-        scopes.append(fields[2])
-    elif fields[0] == '$upscope':
-        scopes.pop()
-    elif fields[0] == '$var':
-        name = '.'.join(scopes + [fields[4]])
-        codes[fields[3]] = name
-        events[name] = []
-    elif line.startswith('#'):
-        time = int(line[1:])
-    elif line[0] in 'bB':
-        bits, code = fields[0][1:].upper(), fields[1]
-        if code in codes:
-            history = events[codes[code]]
+root = Path(__file__).resolve().parents[1]
+reports = []
+for group, title in [('unidirectional', 'Experiment 1: unidirectional bus'),
+                     ('bidirectional', 'Experiment 2: bidirectional bus')]:
+    out = root / 'artifacts' / group
+    text = (out / 'wave.vcd').read_text()
+    scale = re.search(r'\$timescale\s+(\d+)\s*(fs|ps|ns)\s+\$end', text)
+    unit = int(scale[1]) * {'fs': 1e-6, 'ps': 1e-3, 'ns': 1}[scale[2]]
+    codes, data, widths = {}, {}, {}
+    time = 0
+    for line in text.splitlines():
+        fields = line.split()
+        if line.startswith('$var'):
+            name = fields[4].split('[')[0].upper()
+            assert name not in data and name in 'ABCS', 'Unexpected VCD signal'
+            codes[fields[3]] = name
+            widths[name] = int(fields[2])
+            data[name] = []
+        elif line.startswith('#'):
+            time = int(line[1:]) * unit
+        elif line.startswith(('b', 'B')):
+            bits, code = fields[0][1:].upper(), fields[1]
+            history = data[codes[code]]
             if history and history[-1][0] == time:
                 history[-1] = (time, bits)
             else:
                 history.append((time, bits))
-log = (OUT / 'simulation.log').read_text()
-completion = re.search(r'simulation finished @(\d+)ns', log)
-assert completion, 'Simulation did not finish normally'
-end_ns = int(completion[1])
-assert 97 <= time * scale_ns <= end_ns == 100, 'Incomplete simulation'
-# GHDL omits a final VCD timestamp if no signals change before finish.
-# Values after the last event hold through the logged completion time.
-names = {'S': 's[1:0]', 'A': 'a[7:0]', 'B': 'b[7:0]', 'C': 'c[7:0]',
-         'A drive': 'a_drive[7:0]', 'C drive': 'c_drive[7:0]'}
-data = {key: [(t * scale_ns, bits) for t, bits in events['tb_bus_trans.' + name]]
-        for key, name in names.items()}
+    assert set(data) == set('ABCS') and widths == {'A': 8, 'B': 8, 'C': 8, 'S': 2}
+    assert time == 80, f'Incomplete VCD: {time} ns'
+    log = (out / 'simulation.log').read_text()
+    assert re.findall(r'PASS\|(route_\d\d)', log) == ['route_00', 'route_01', 'route_10', 'route_11']
+    assert 'SUMMARY|4 routing checks passed; completed at 80 ns' in log
+    assert 'GHDL_EXIT_STATUS=0' in log and 'FAIL|' not in log
 
-# The only X events must belong to the deliberate contention tests after 80 ns.
-assert all('X' not in bits for history in data.values() for ns, bits in history if ns < 80), 'Unexpected X in normal routing'
+    def display(bits, key):
+        if set(bits) <= {'0', '1'}:
+            return bits if key == 'S' else f'{int(bits, 2):02X}'
+        return bits[0] * 2 if len(set(bits)) == 1 else bits
 
-def sample(key, ns):
-    history = data[key]
-    index = bisect.bisect_right([t for t, _ in history], ns) - 1
-    assert index >= 0
-    return history[index][1]
+    def sample(key, ns):
+        return display([bits for t, bits in data[key] if t <= ns][-1], key)
 
-def display(bits, binary=False):
-    if set(bits) <= {'0', '1'}:
-        return bits if binary else f'{int(bits, 2):02X}'
-    if len(set(bits)) == 1:
-        return bits[0] * (2 if len(bits) == 8 else len(bits))
-    return bits
+    rows = []
+    for index, expected in enumerate(['3C', 'A5', '5A', 'F0']):
+        ns = 5 + 20 * index
+        actual = {key: sample(key, ns) for key in 'ABCS'}
+        destination = 'A' if group == 'bidirectional' and index == 0 else 'C'
+        source = 'C' if destination == 'A' else 'A' if index < 2 else 'B'
+        assert actual['S'] == f'{index:02b}' and actual[destination] == actual[source] == expected
+        rows.append({'time_ns': ns, **actual, 'direction': f'{source}->{destination}',
+                     'expected': expected, 'actual': actual[destination], 'result': 'PASS'})
+    with (out / 'results.csv').open('w', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
 
-checks = [
-    ('route_00', 5, {'S': '00', 'A': '3C', 'C': '3C', 'A drive': 'ZZ'}),
-    ('route_01', 25, {'S': '01', 'A': 'A5', 'C': 'A5', 'C drive': 'ZZ'}),
-    ('route_10', 45, {'S': '10', 'A': 'ZZ', 'C': '5A', 'B': '5A'}),
-    ('route_11', 65, {'S': '11', 'A': 'ZZ', 'C': 'F0', 'B': 'F0'}),
-    ('release_00', 83, {'S': '00', 'A': 'ZZ', 'C': 'ZZ'}),
-    ('release_01', 85, {'S': '01', 'A': 'ZZ', 'C': 'ZZ'}),
-    ('conflict_00', 87, {'S': '00', 'A': 'XX', 'C': 'FF'}),
-    ('recovery_00', 89, {'A': 'FF', 'C': 'FF'}),
-    ('conflict_01', 93, {'S': '01', 'A': 'A5', 'C': 'XX'}),
-    ('recovery_01', 95, {'A': 'A5', 'C': 'A5'}),
-    ('release_final', 97, {'A': 'ZZ', 'C': 'ZZ'}),
-]
-log = (OUT / 'simulation.log').read_text()
-assert re.findall(r'PASS\|([a-z0-9_]+)', log) == [name for name, _, _ in checks]
-assert 'simulation finished @100ns' in log and 'FAIL|' not in log
-rows = []
-for name, ns, expected in checks:
-    actual = {key: display(sample(key, ns), key == 'S') for key in names}
-    for key, value in expected.items():
-        assert actual[key] == value, (name, key, value, actual[key])
-    rows.append({'check': name, 'time_ns': ns, **actual,
-                 'expected': '; '.join(f'{k}={v}' for k, v in expected.items()), 'result': 'PASS'})
-with (OUT / 'results.csv').open('w', newline='') as file:
-    writer = csv.DictWriter(file, fieldnames=list(rows[0]))
-    writer.writeheader()
-    writer.writerows(rows)
-
-fig, axes = plt.subplots(2, 1, figsize=(17, 9), gridspec_kw={'height_ratios': [1, 1]})
-fig.patch.set_facecolor('#f5f7fb')
-fig.suptitle('8-bit bidirectional bus | Actual GHDL VCD simulation', fontsize=20, weight='bold', y=.98)
-for ax, left, right, title in zip(axes, [0, 80], [80, 100],
-        ['Routing tests: 0-80 ns (driver release and settling gaps included)',
-         'Release, intentional contention, and recovery: 80-100 ns']):
-    ax.set_facecolor('white')
-    for index, key in enumerate(names):
-        y = 5 - index
+    fig, ax = plt.subplots(figsize=(15, 4.6))
+    for i, key in enumerate('ABCS'):
+        y = 3 - i
         history = data[key]
         for j, (start, bits) in enumerate(history):
-            stop = history[j + 1][0] if j + 1 < len(history) else end_ns
-            lo, hi = max(left, start), min(right, stop)
-            if hi <= lo:
+            stop = history[j+1][0] if j+1 < len(history) else 80
+            if stop <= start:
                 continue
-            value = display(bits, key == 'S')
-            z = 'Z' in bits
-            x = 'X' in bits
-            color = '#d1495b' if x else '#8795a5' if z else '#166b91'
-            fill = '#ffe4e9' if x else '#eef1f5' if z else '#e3f3fb'
-            dx = min((right - left) * .003, (hi - lo) / 4)
-            if z:
-                ax.plot([lo, hi], [y, y], color=color, lw=1.4, linestyle='--')
+            value = display(bits, key)
+            if 'Z' in bits:
+                ax.plot([start, stop], [y, y], '--', color='#8693a4')
             else:
-                ax.add_patch(Polygon([(lo, y), (lo+dx, y+.27), (hi-dx, y+.27),
-                                      (hi, y), (hi-dx, y-.27), (lo+dx, y-.27)],
-                                     facecolor=fill, edgecolor=color, linewidth=1.2))
-            if hi - lo >= (right-left) * .018:
-                ax.text((lo+hi)/2, y, value, ha='center', va='center', fontsize=10,
-                        color=color, weight='bold', bbox={'facecolor': fill, 'edgecolor': 'none', 'pad': .3})
-    for ns in [t for _, t, _ in checks if left < t < right]:
-        ax.axvline(ns, color='#b7c3ce', lw=.7, alpha=.5, zorder=0)
-    ax.set_yticks(range(5, -1, -1), [k + (' [1:0]' if k == 'S' else ' [7:0]') for k in names])
-    ax.set_xlim(left, right)
-    ax.set_ylim(-.65, 5.65)
-    ax.set_xticks(list(range(left, right+1, 5 if left == 0 else 1)))
+                d = min(.25, (stop-start)/4)
+                ax.add_patch(Polygon([(start,y),(start+d,y+.24),(stop-d,y+.24),
+                                      (stop,y),(stop-d,y-.24),(start+d,y-.24)],
+                                     facecolor='#e6f3fc', edgecolor='#166b91', linewidth=1.3))
+            if stop-start >= 1.5:
+                ax.text((start+stop)/2, y, value, ha='center', va='center', fontsize=12,
+                        color='#166b91', bbox={'facecolor': 'white', 'edgecolor': 'none', 'pad': .2})
+    ax.set_yticks([3,2,1,0], ['A [7:0]', 'B [7:0]', 'C [7:0]', 'S [1:0]'])
+    ax.set_xlim(0,80)
+    ax.set_ylim(-.5,3.5)
+    ax.set_xticks(range(0,81,5))
     ax.set_xlabel('Time (ns)')
-    ax.set_title(title, loc='left', fontsize=12, pad=12)
-    ax.grid(axis='x', color='#e7ebef', lw=.7)
-    ax.spines[['top', 'right', 'left']].set_visible(False)
-fig.text(.1, .017, 'Data: hexadecimal | S: binary | ZZ: high impedance | XX: intentional conflict | '
-         '11/11 assertions + VCD samples PASS\nSource: artifacts/wave.vcd; Python rendering of recorded events, not a GTKWave screenshot.',
-         fontsize=10, color='#475569')
-fig.tight_layout(rect=[.02, .065, .99, .94], h_pad=2)
-fig.savefig(OUT / 'waveform_rendered.png', dpi=160)
-print(f'VCD verified: {len(rows)}/11 samples PASS; rendered {end_ns:g} ns to artifacts/waveform_rendered.png')
+    ax.set_title(title + ' | Actual VCD data', fontsize=16, pad=15)
+    ax.grid(axis='x', color='#e5eaf0')
+    ax.spines[['left','right','top']].set_visible(False)
+    fig.tight_layout()
+    fig.savefig(out / 'waveform_rendered.png', dpi=160)
+    plt.close(fig)
+    reports.append((group, rows))
+    print(f'{group}: 4/4 routing assertions and VCD samples PASS; A B C S; 0-80 ns')
+
+report = '''# 8 位数据总线功能仿真实验
+
+## 实验目标
+
+分别设计并仿真单向总线和双向总线，验证控制信号 S 的四种状态下的数据传输。每组仅进行四项数据传输测试，时间范围均为 0–80 ns，波形由上到下只显示 A、B、C、S。
+
+## 设计与测试方案
+
+第一组 `bus_trans_unidirectional.vhd`：A、B 为 8 位输入，C 为 8 位输出；S=00/01 时 A→C，S=10/11 时 B→C。
+
+第二组 `bus_trans.vhd`：A、C 为 8 位双向端口，B 为 8 位输入；S=00 时 C→A，S=01 时 A→C，S=10/11 时 B→C。保留原来的传输逻辑，仅精简代码格式并删除注释。
+
+| 名义区间 | S | 第一组输入 → 预期输出 | 第二组输入 → 预期输出 |
+| --- | --- | --- | --- |
+| 0–20 ns | 00 | A=3C → C=3C | C=3C → A=3C |
+| 20–40 ns | 01 | A=A5 → C=A5 | A=A5 → C=A5 |
+| 40–60 ns | 10 | B=5A → C=5A | B=5A → C=5A |
+| 60–80 ns | 11 | B=F0 → C=F0 | B=F0 → C=F0 |
+
+两个独立 Testbench 均在 5、25、45、65 ns 断言检查输出。双向总线在 20 ns 释放外部驱动，21 ns 切换 S，22 ns 设置 A；40 ns 释放 A，41 ns 切换 S，42 ns 设置 B。这些交接间隔保证数据稳定后再检查，不安排独立的高阻态或冲突测试。双向端口未被驱动时自然显示 ZZ，内部驱动信号不导出到 VCD、不加入图中。
+
+## 实际结果与波形
+
+以下表格直接从本次 GHDL 生成的 VCD 中采样，PASS 同时要求 GHDL 正常退出、对应 VHDL 断言通过、VCD 采样与预期一致。A/B/C 为 8 位十六进制，S 为二进制。
+'''
+for index, (group, rows) in enumerate(reports, 1):
+    label = '单向总线' if index == 1 else '双向总线'
+    report += f'\n### 第一组：{label}\n' if index == 1 else f'\n### 第二组：{label}\n'
+    report += '\n| 采样/ns | A | B | C | S | 方向 | 预期输出 | 实际输出 | 结果 |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n'
+    for r in rows:
+        report += '| ' + ' | '.join(str(r[k]) for k in ['time_ns','A','B','C','S','direction','expected','actual','result']) + ' |\n'
+    report += f'\nGTKWave 真实窗口截图：\n\n![{label} GTKWave 截图]({group}/waveform_screenshot.png)\n'
+    report += f'\n真实 VCD 的 Python 渲染图：\n\n![{label} VCD 渲染图]({group}/waveform_rendered.png)\n'
+report += '''
+## 结论与复现
+
+两组均完成 GHDL 分析、展开及 0–80 ns 仿真，每组四项数据传输断言全部 PASS，合计 8/8；对应 VCD 采样也全部通过。VCD 和两种波形图片均只包含 A、B、C、S。原双向总线在实验要求的四种合法选择状态下无需逻辑修复。
+
+在仓库根目录执行：
+
+```bash
+./scripts/run_sim.sh
+python3 scripts/capture_gtkwave.py
+```
+
+每组结果分别保存在 `unidirectional/` 和 `bidirectional/`：`simulation.log` 记录实际命令和断言输出，`wave.vcd` 保留实际事件，`results.csv` 记录采样值，`wave.gtkw` 保存 ABCS 视图，`gtkwave.log` 记录 GUI 载入，`waveform_screenshot.png` 是实际 GTKWave 截图，`waveform_rendered.png` 是 Python 解析 VCD 绘制的时序图。工具版本与安装方法见 `tool_setup.log`。
+'''
+(root / 'artifacts/experiment_report.md').write_text(report)

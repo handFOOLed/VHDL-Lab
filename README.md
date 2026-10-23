@@ -1,66 +1,46 @@
 # VHDL-Lab
 
-## 实验一：8 位双向数据总线
+两组 8 位总线实验，每组只测试 S 的四种状态，波形从上到下仅显示 **A、B、C、S**。VHDL 源码与测试代码均已精简，无注释。
 
-原设计为 `bus_trans.vhd`，实体 `bus_trans`。`S=00` 时 C→A，`S=01` 时 A→C，`S=10/11` 时 B→C。
+| S | 第一组：单向总线 | 第二组：双向总线 |
+| --- | --- | --- |
+| 00 | A → C，3C | C → A，3C |
+| 01 | A → C，A5 | A → C，A5 |
+| 10 | B → C，5A | B → C，5A |
+| 11 | B → C，F0 | B → C，F0 |
 
-### 安装依赖
+第一组设计为 `bus_trans_unidirectional.vhd`，测试为 `tb_bus_trans_unidirectional.vhd`；第二组设计为 `bus_trans.vhd`，测试为 `tb_bus_trans.vhd`。两组仿真均覆盖 0–80 ns，分别在 5、25、45、65 ns 自动断言检查。
 
-Debian/Ubuntu 标准安装方式：
+## 运行
+
+Debian/Ubuntu 安装依赖：
 
 ```bash
 sudo apt-get update
 sudo apt-get install ghdl gtkwave xvfb imagemagick python3-matplotlib
 ```
 
-本次云环境使用 Debian 签名软件源下载软件包并在 `/workspace/tooling` 下解包，无需修改系统目录；GHDL 包装器位于 `/workspace/tooling/bin/ghdl`，运行脚本会自动识别。实际版本和安装命令记录见 `artifacts/tool_setup.log`。无需 Quartus、开发板、网络服务或凭据。
-
-### 一键仿真与自动验证
+在仓库根目录运行：
 
 ```bash
-cd /workspace/VHDL-Lab  # 或自己的仓库根目录
 ./scripts/run_sim.sh
-```
-
-要求 Python 3、matplotlib 和支持 VHDL-2008 的 GHDL。可用 `GHDL=/path/to/ghdl ./scripts/run_sim.sh` 指定编译器。
-
-脚本依次执行分析、展开、运行仿真、VCD 解析复核、绘制真实波形；任一步失败均返回非零状态。构建中间文件放入临时目录并自动清理。失败时检查 `artifacts/simulation.log`；重新仿真会移除旧结果和旧截图，防止误用过期产物。
-
-正常输出包含四项传输 PASS，以及七项高阻态、故意冲突和恢复检查 PASS；仿真在 100 ns 正常结束。Python 从实际 VCD 中再次核对 11 个采样点，生成 `artifacts/results.csv` 和 `artifacts/waveform_rendered.png`。
-
-### 手动执行 GHDL
-
-```bash
-mkdir -p /tmp/vhdl-lab-work
-ghdl -a --std=08 --workdir=/tmp/vhdl-lab-work bus_trans.vhd tb_bus_trans.vhd
-ghdl -e --std=08 --workdir=/tmp/vhdl-lab-work tb_bus_trans
-ghdl -r --std=08 --workdir=/tmp/vhdl-lab-work tb_bus_trans \
-  --assert-level=error --vcd=artifacts/wave.vcd
-```
-
-### GTKWave 查看与真实截图
-
-```bash
-cd artifacts
-gtkwave --save=wave.gtkw --rcfile=../scripts/gtkwaverc \
-  --script=../scripts/gtkwave_view.tcl wave.vcd
-```
-
-保存的视图包含 S、A、B、C、a_drive、c_drive；S 按二进制显示，所有 8 位数据按十六进制显示，并缩放至整个 VCD 时间范围。
-
-云端无桌面时，在允许本地 Unix socket 的执行环境运行：
-
-```bash
 python3 scripts/capture_gtkwave.py
 ```
 
-该脚本使用 Xvfb、GTKWave 和 ImageMagick，截取真实窗口到 `artifacts/waveform_screenshot.png`，并关闭本次启动的进程。若沙箱禁止 X11 socket，可在获准的执行模式运行，或直接查看独立生成的 `waveform_rendered.png`；后者明确标记为 VCD 渲染图。
+第一条命令执行两组 GHDL 仿真、VCD 采样验证，生成时序图、结果表与报告。第二条用 Xvfb 打开 GTKWave 并实际截取窗口；需允许本机 Unix socket。云环境已安装的 `/workspace/tooling/bin/ghdl` 会被自动识别，也可通过 `GHDL=/path/to/ghdl` 指定。每次仿真会清理旧结果及截图，重新仿真后需要重新截屏。
 
-### 本次结果
+手动查看第一组波形（第二组将目录改为 `artifacts/bidirectional`）：
 
-- 编译、展开、运行全部成功；四种传输状态全部 PASS，合计 11/11 项检查通过。
-- 原始设计无需修改；正常传输无 X，故意驱动冲突产生预期 X，并验证释放后恢复。
+```bash
+cd artifacts/unidirectional
+gtkwave --save=wave.gtkw --rcfile=../../scripts/gtkwaverc \
+  --script=../../scripts/gtkwave_view.tcl wave.vcd
+```
+
+## 结果
+
+- 第一组：4/4 PASS；[GTKWave 截图](artifacts/unidirectional/waveform_screenshot.png) · [VCD 渲染图](artifacts/unidirectional/waveform_rendered.png)
+- 第二组：4/4 PASS；[GTKWave 截图](artifacts/bidirectional/waveform_screenshot.png) · [VCD 渲染图](artifacts/bidirectional/waveform_rendered.png)
 - [中文实验报告](artifacts/experiment_report.md)
-- [真实 GTKWave 截图](artifacts/waveform_screenshot.png)
-- [VCD 数字时序图](artifacts/waveform_rendered.png)
-- [原始 VCD](artifacts/wave.vcd)、[仿真日志](artifacts/simulation.log)、[结果 CSV](artifacts/results.csv)
+
+每组目录包含 `wave.vcd`、`wave.gtkw`、`simulation.log`、`results.csv`、`gtkwave.log` 和两张 PNG。VCD 本身也只导出 A、B、C、S。实际工具安装方法及版本见 [tool_setup.log](artifacts/tool_setup.log)。

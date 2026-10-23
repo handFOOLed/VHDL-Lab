@@ -1,0 +1,9 @@
+[dumpfile] "wave.vcd"
+[size] 1800 450
+[signals_width] 340
+@22
+tb_bus_trans.a[7:0]
+tb_bus_trans.b[7:0]
+tb_bus_trans.c[7:0]
+@28
+tb_bus_trans.s[1:0]

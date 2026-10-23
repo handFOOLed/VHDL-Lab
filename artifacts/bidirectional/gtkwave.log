@@ -1,0 +1,9 @@
+_XSERVTransmkdir: Owner of /tmp/.X11-unix should be set to root
+Command: /workspace/tooling/gui/root/usr/bin/gtkwave --save=wave.gtkw --rcfile=/workspace/VHDL-Lab/scripts/gtkwaverc --script=/workspace/VHDL-Lab/scripts/gtkwave_view.tcl wave.vcd
+
+GTKWave Analyzer v3.3.121 (w)1999-2024 BSI
+
+[0] start time.
+[80000000] end time.
+GTKWAVE | Executing Tcl script '/workspace/VHDL-Lab/scripts/gtkwave_view.tcl'
+GTKWave ready: A B C S; full VCD time range

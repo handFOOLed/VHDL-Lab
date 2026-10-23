@@ -1,0 +1,48 @@
+$date
+  Fri Oct 23 07:46:30 2026
+$end
+$version
+  GHDL v0
+$end
+$timescale
+  1 fs
+$end
+$scope module tb_bus_trans $end
+$var reg 8 ! a[7:0] $end
+$var reg 8 " b[7:0] $end
+$var reg 8 # c[7:0] $end
+$var reg 2 $ s[1:0] $end
+$upscope $end
+$enddefinitions $end
+#0
+b00111100 !
+b11000011 "
+b00111100 #
+b00 $
+#5000000
+#20000000
+bZZZZZZZZ !
+bZZZZZZZZ #
+#21000000
+b00111100 "
+b01 $
+#22000000
+b10100101 !
+b10100101 #
+#25000000
+#40000000
+bZZZZZZZZ !
+bZZZZZZZZ #
+#41000000
+b00111100 #
+b10 $
+#42000000
+b01011010 "
+b01011010 #
+#45000000
+#60000000
+b11110000 "
+b11110000 #
+b11 $
+#65000000
+#80000000
